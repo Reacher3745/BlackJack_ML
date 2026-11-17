@@ -69,7 +69,7 @@
     return "rgb(" + pa.map((v, i) => Math.round(v + (pb[i] - v) * t)).join(",") + ")";
   }
   function heatColor(p) {
-    const win = css("--win"), loss = css("--loss"), mid = css("--mid");
+    const win = "#2f9a69", loss = "#b23a4c", mid = "#1d3a2d";   // darker ends than the chart colours so ivory text stays readable
     return p >= 0.5 ? mix(mid, win, Math.min(1, (p - 0.5) / 0.4)) : mix(mid, loss, Math.min(1, (0.5 - p) / 0.3));
   }
   const GROUP_START = new Set(["hard 5", "soft 13", "blackjack", "pair of 2s"]);
@@ -86,7 +86,7 @@
         const b = document.createElement("button");
         b.textContent = Math.round(100 * p);
         b.style.background = heatColor(p);
-        b.style.color = Math.abs(p - 0.5) > 0.2 ? css("--card") : css("--ink");
+        b.style.color = "#fff6df";
         b.dataset.h = h; b.dataset.u = u;
         b.setAttribute("aria-label", `${name} against dealer ${UPS[u]}: ${pct(p)} win chance. Open in explorer.`);
         b.setAttribute("aria-pressed", "false");
@@ -127,7 +127,7 @@
     });
     const i = xs.indexOf(Math.round(S.x * 4) / 4), b = binOf(S.x), r = c.ref[b];
     const rows = MODELS.map((m) => `<tr><td><span class="sw" style="background:${css(COLOR[m])}"></span> ${m}</td><td class="num">${pct(c.pred[m][i])}</td></tr>`).join("");
-    const refRow = r ? `<tr><td>Big simulation, this count bin (${r[2].toLocaleString()} rounds)</td><td class="num">${pct(r[0])} ± ${(100 * r[1]).toFixed(1)}</td></tr>` : "";
+    const refRow = r ? `<tr><td>Reference simulation, this count bin (${r[2].toLocaleString()} rounds)</td><td class="num">${pct(r[0])} ± ${(100 * r[1]).toFixed(1)}</td></tr>` : "";
     document.getElementById("readout").innerHTML = `<tr><th>At count ${(S.x > 0 ? "+" : "") + S.x.toFixed(2)}</th><th class="num">P(win)</th></tr>` + rows + refRow;
     const lg = c.pred["Logistic"], swing = lg[lg.length - 1] - lg[0];
     const name = BJ.hand_types[S.h];
@@ -136,7 +136,7 @@
       `(${c.train_n.toLocaleString()} training rounds). Going from a count of −4 to +4 moves the logistic estimate by ` +
       `${swing >= 0 ? "+" : "−"}${Math.abs(100 * swing).toFixed(1)} percentage points. ` +
       (c.train_n < 1500 ? "This is a rare hand, so the curves wobble more and the reference error bars are wide. " : "") +
-      "Black circles are the 20M-round reference with 95% error bars: the closer a line runs through them, the better.";
+      "The circles mark the 20M-round reference with 95% error bars; the closer a line passes through them, the better the model.";
   }
   function initExplorer() {
     const sel = document.getElementById("hand");

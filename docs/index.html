@@ -3,16 +3,18 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Blackjack win odds from what's on the table · ES 335 project</title>
+<title>Reading the Table: predicting a blackjack hand (ES 335 project)</title>
 <meta name="description" content="ES 335 course project: predicting whether a blackjack round is won, from the player's cards, the dealer's up-card and an imperfect card count.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600&family=Literata:opsz,wght@7..72,400;7..72,600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Bodoni+Moda:opsz,wght@6..96,600;6..96,700&family=Literata:opsz,wght@7..72,400;7..72,600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <nav class="top" aria-label="Sections">
   <ul>
+    <li><a href="#play">Play</a></li>
+    <li><a href="#card">Strategy card</a></li>
     <li><a href="#question">Question</a></li>
     <li><a href="#data">Data</a></li>
     <li><a href="#preprocessing">Preprocessing</a></li>
@@ -30,16 +32,78 @@
 
 <main>
 <header class="intro">
-  <h1>How often does a blackjack round win, judging only by what's on the table?</h1>
-  <p class="lead">We simulated a million rounds and compared five models. A plain table of player hand against dealer card gets almost everything right. The card count changes how much money the player makes far more than how often they win.</p>
-  <p class="small">ES 335 course project · Garv Singhal (24110119) and Priyanshu Raj (24110279) · IIT Gandhinagar · November 2026</p>
+  <p class="marquee">ES 335 course project, IIT Gandhinagar</p>
+  <h1>Reading the Table: Can a Model Price a Blackjack Hand?</h1>
+  <p class="lead">One million simulated rounds, five models, and a twenty-million-round reference to check them against. Take a seat below: every hand you are dealt is priced by our models the moment the cards land.</p>
+  <p class="byline">Garv Singhal (24110119) and Priyanshu Raj (24110279), November 2026</p>
+</header>
 
+<section id="play">
+  <div class="table-wrap">
+    <div class="felt" id="g-felt">
+      <div id="g-toast" role="status"></div>
+      <p class="arc">Blackjack pays 3 to 2. Dealer stands on all 17s. Six decks, one split, double after split.</p>
+      <div class="zone"><span class="label">Dealer</span><div id="g-dealer"></div></div>
+      <p class="g-msg" id="g-msg" aria-live="polite"></p>
+      <p class="pill" id="g-pill" hidden></p>
+      <div class="zone"><div id="g-player"></div><span class="label">Your hand</span></div>
+      <div class="actions">
+        <button class="btn" id="g-H">Hit <kbd>H</kbd></button>
+        <button class="btn" id="g-S">Stand <kbd>S</kbd></button>
+        <button class="btn" id="g-D">Double <kbd>D</kbd></button>
+        <button class="btn" id="g-P">Split <kbd>P</kbd></button>
+      </div>
+      <div class="rail">
+        <div class="chips" id="g-chips" role="group" aria-label="Bet size"></div>
+        <button class="btn primary" id="g-deal">Deal <kbd>N</kbd></button>
+      </div>
+      <p class="bankline">Stack <b id="g-bank">1,000</b> chips, betting <b id="g-betv">25</b>. Play money only. <button class="linkbtn" id="g-rebuy">Take a new stack</button></p>
+    </div>
+    <aside class="odds" aria-live="polite">
+      <h3>Model forecast at the deal</h3>
+      <div class="bigrow"><span class="bignum" id="g-p">–</span><span class="not">chance this round is a win<br>not a win: <span id="g-pnot">–</span></span></div>
+      <p class="desc" id="g-hand"></p>
+      <div class="models" id="g-others" role="group" aria-label="Choose the model shown"></div>
+      <p class="fine" id="g-ref"></p>
+      <div class="liveblock" id="g-live">
+        <h3>Live simulation of this hand</h3>
+        <div class="lbar" aria-hidden="true"><span id="g-lw"></span><span id="g-lp"></span><span id="g-ll"></span></div>
+        <p class="fine" id="g-livetxt"></p>
+        <p class="fine">4,000 random finishes drawn from the cards actually left in this shoe, with basic strategy from here on. It is recomputed after every decision.</p>
+      </div>
+      <div class="hint" id="g-hint"></div>
+      <div class="countrow">
+        <div><span>Running count</span><b id="g-rc">+0</b></div>
+        <div><span>Decks left</span><b id="g-dk">6.0</b></div>
+        <div><span>True count</span><b id="g-tc">+0.00</b></div>
+      </div>
+    </aside>
+  </div>
+  <div class="check">
+    <div id="g-check"></div>
+    <div class="sess" id="g-sess"></div>
+    <div class="actions" style="justify-content:flex-start;margin-top:.7rem">
+      <button class="btn" id="g-book">Finish this hand by the book</button>
+      <button class="btn" id="g-fast">Play 200 hands by the book</button>
+    </div>
+  </div>
+  <div class="prose" style="margin-top:1rem">
+    <p class="small"><b>How to read the table.</b> The forecast is what the trained models say at the moment of the deal. They use the same inputs as the study: your two cards, the dealer's up-card, and the true count before the deal. Like the study, it assumes you will follow basic strategy. If you deviate, the forecast no longer describes your hand.</p>
+    <p class="small">The live simulation is not a model. It replays the exact situation thousands of times from the cards that remain, so it shows the probability the models are trying to estimate.</p>
+    <p class="small">The forecast is a probability, not a prediction of one hand. The check under the table compares the average forecast with how often you actually win, and that comparison becomes meaningful only over many hands.</p>
+  </div>
+</section>
+
+<section id="card">
+  <div class="prose">
+    <h2>The strategy card</h2>
+    <p>The chance of winning, in percent, for every starting hand against every dealer up-card. It comes from 800,000 training rounds played with basic strategy, and a push counts as not a win. Select any cell to open it in the hand explorer further down.</p>
+  </div>
   <figure>
     <div class="scroll"><div class="cardgrid" id="grid" aria-label="Win chance for every starting hand against every dealer up-card"></div></div>
     <div class="legend"><span>Usually loses</span><span class="bar"></span><span>Usually wins</span></div>
-    <figcaption>Chance of winning the round, in percent, for every starting hand (rows) against every dealer up-card (columns), from 800k training rounds played with basic strategy. A push counts as not winning. Click any cell to open it in the explorer below.</figcaption>
   </figure>
-</header>
+</section>
 
 <section id="question" class="prose">
   <h2>Question</h2>
@@ -52,7 +116,7 @@
     <li>How much does the deck estimate add beyond the cards on the table?</li>
     <li>How much is lost because the player's count is imperfect?</li>
   </ol>
-  <p><b>Limits of the claim.</b> All numbers hold only for one rule set (6 decks, dealer stands on soft 17, blackjack pays 3:2, double after split, one split, no surrender), for basic strategy, and for our model of an imperfect counter. Without a fixed playing policy the chance of winning isn't even defined, since it depends on how the hand is played. Count-based playing changes, bet sizing, real casinos and causal claims are all out of scope.</p>
+  <p><b>Limits of the claim.</b> All numbers hold only for one rule set (6 decks, dealer stands on soft 17, blackjack pays 3:2, double after split, one split, no surrender), for basic strategy, and for our model of an imperfect counter. Without a fixed playing policy the chance of winning is not even defined, since it depends on how the hand is played. Count-based playing changes, bet sizing, real casinos and causal claims are all out of scope.</p>
 </section>
 
 <section id="data" class="prose">
@@ -70,7 +134,7 @@
   <p><b>Rare hands.</b> The 340 combinations of hand type and up-card are far from balanced. The median one has 783 training rounds; pair of 7s against a 7 has only 287. For cells like that, a simple win rate has an error of around 3 percentage points.</p>
 
   <h3>What the count actually changes</h3>
-  <p>This was the most useful thing we found while exploring. Both charts below use the same vertical span, so their slopes can be compared directly.</p>
+  <p>This was the most informative finding of the exploratory analysis. Both charts below use the same vertical span, so their slopes can be compared directly.</p>
 </section>
 <figure>
   <div class="two">
@@ -83,16 +147,16 @@
 <section id="preprocessing" class="prose">
   <h2>Preprocessing</h2>
   <p>The simulator writes complete rows, so there is nothing to clean. The fixed transforms in <code>src/features.py</code> turn the two cards into one of 34 hand types (hard 5 to 19, soft 13 to 20, blackjack, ten pairs) and cut the count into 9 bins one point wide. Neither looks at outcomes, so applying them before the split is safe.</p>
-  <p>Everything that is <i>learned</i>, like table rates, shrinkage targets, logistic weights and tree splits, happens inside each model's <code>fit()</code> on training shoes only. During cross-validation that means the training folds only. We did not scale the count, because the trees don't care and the raw count keeps the logistic weights readable as "log-odds per count point". The proposal's idea of regularising for collinear deck features did not survive: one count plus the state is not collinear.</p>
+  <p>Everything that is <i>learned</i>, like table rates, shrinkage targets, logistic weights and tree splits, happens inside each model's <code>fit()</code> on training shoes only. During cross-validation that means the training folds only. We did not scale the count, because the trees do not care and the raw count keeps the logistic weights readable as "log-odds per count point". The proposal's idea of regularising for collinear deck features did not survive: one count plus the state is not collinear.</p>
 </section>
 
 <section id="methods" class="prose">
   <h2>Baseline and methods</h2>
-  <p>Beating the constant is easy. Beating the plain table is the real test, because with 800k rows most of the 340 cells already have thousands of examples. A model can only win by using the count well or by doing better on rare cells.</p>
+  <p>Improving on the constant is easy. Improving on the plain table is the real test, because with 800k rows most of the 340 cells already have thousands of examples. A model can only improve on it by using the count well or by estimating rare cells better.</p>
   <div class="scroll"><table class="data">
     <tr><th>Model</th><th>Idea</th><th>Assumption</th></tr>
     <tr><td>Constant</td><td>Always the training win rate</td><td>Nothing matters</td></tr>
-    <tr><td>Table</td><td>Win rate of each (hand, up-card) cell</td><td>Count doesn't matter</td></tr>
+    <tr><td>Table</td><td>Win rate of each (hand, up-card) cell</td><td>Count does not matter</td></tr>
     <tr><td>Table+count</td><td>Win rate per cell and count bin, shrunk toward the cell's rate</td><td>Count acts in steps</td></tr>
     <tr><td>Logistic</td><td>Own weight per cell, plus a count slope that depends on up-card and hand</td><td>Count shifts log-odds in a straight line</td></tr>
     <tr><td>Boosted trees</td><td>sklearn HistGradientBoosting on the 5 raw features</td><td>Almost none</td></tr>
@@ -103,10 +167,10 @@
 
 <section id="evaluation" class="prose">
   <h2>Evaluation</h2>
-  <p><b>Split by shoe.</b> Rounds from the same shoe share a deck, so they are not independent. A random 20% of shoes (4,613 shoes, 200,054 rounds) form the test set. Every other shoe is for training. We dropped the stratified k-fold from our proposal for this reason: stratifying on the label doesn't fix the shoe dependence.</p>
+  <p><b>Split by shoe.</b> Rounds from the same shoe share a deck, so they are not independent. A random 20% of shoes (4,613 shoes, 200,054 rounds) form the test set. Every other shoe is for training. We dropped the stratified k-fold from our proposal for this reason: stratifying on the label does not fix the shoe dependence.</p>
   <p><b>Tuning.</b> Each model's settings are chosen by 5-fold cross-validation grouped by shoe, on training shoes only, by mean log-loss. The winner is refit on all training shoes and scored on the test shoes once. Side analyses (count ablation, learning curve) use a held-out training fold.</p>
   <p><b>Metrics.</b> Log-loss is the main one. We also report Brier score, calibration error (ECE, 20 equal-size groups) and AUC. We dropped F1: it needs a yes/no cut-off, and nothing here uses one.</p>
-  <p><b>Error bars.</b> We resample the test <i>shoes</i> 2,000 times. Model-vs-table differences use the same resampled shoes for both, which is the only way to see differences in the fourth decimal. An interval that excludes zero says the gap is real for this rule set, this policy and this noise model. It says nothing about any other setup. We use intervals instead of p-values because the size of a gap matters more here than whether it exists.</p>
+  <p><b>Error bars.</b> We resample the test <i>shoes</i> 2,000 times. Model-vs-table differences use the same resampled shoes for both, which is necessary to detect differences in the fourth decimal place. An interval that excludes zero says the gap is real for this rule set, this policy and this noise model. It says nothing about any other setup. We use intervals instead of p-values because the size of a gap matters more here than whether it exists.</p>
   <p><b>Distance to the truth.</b> Since we simulate, a separate 20M-round run gives a close estimate of the true win rate of every (cell, count bin). We report each model's average distance from it (RMSE, in percentage points), after subtracting the reference's own sampling noise. The same run gives the <b>noise floor</b>: the loss even a perfect model would get, because the hole card and the next cards are random.</p>
   <details><summary>Cross-validation results for every setting we tried</summary>
     <div class="scroll"><table class="data" id="cvtable"></table></div>
@@ -117,36 +181,36 @@
 <section id="choices">
   <div class="prose">
     <h2>Our choices, and what changed from the proposal</h2>
-    <p>The proposal fixed the question and the inputs. Most of the real work was turning loose phrases in it into choices we could defend. Each row is a decision, the option we didn't take, and why.</p>
+    <p>The proposal fixed the question and the inputs. Most of the real work was turning loose phrases in it into choices we could defend. Each row is a decision, the option we did not take, and why.</p>
   </div>
   <div class="scroll"><table class="data">
     <tr><th>We chose</th><th>Instead of</th><th>Because</th></tr>
-    <tr><td>Player fixed to basic strategy</td><td>Leaving play unspecified, or letting it follow the count</td><td>The win chance isn't defined without a policy, and count-based play would mix two effects</td></tr>
+    <tr><td>Player fixed to basic strategy</td><td>Leaving play unspecified, or letting it follow the count</td><td>The win chance is not defined without a policy, and count-based play would mix two effects</td></tr>
     <tr><td>Push counts as not-win</td><td>Three classes, or expected return</td><td>The proposal asked for a binary win. We show push rate and money result separately so nothing is hidden.</td></tr>
-    <tr><td>Soft and pair flags next to the total</td><td>The bare total from the proposal</td><td>Soft 17 and hard 17 are different hands. Without the flags, the soft/hard boundaries we promised to study can't be seen.</td></tr>
+    <tr><td>Soft and pair flags next to the total</td><td>The bare total from the proposal</td><td>Soft 17 and hard 17 are different hands. Without the flags, the soft/hard boundaries we promised to study cannot be seen.</td></tr>
     <tr><td>Count taken before the deal</td><td>Folding the three visible cards into the count</td><td>Those cards are already inputs, and pre-deal is when a player sizes a bet</td></tr>
-    <tr><td>Count noise: sd 2 on the running count, decks guessed to the nearest half</td><td>The exact count, or heavier noise</td><td>Gives an error of 0.69 count points with correlation 0.96: clearly imperfect, still usable. We didn't vary it (see Limitations).</td></tr>
-    <tr><td>Split and CV grouped by shoe</td><td>Stratified rows (proposal)</td><td>Rounds in one shoe share a deck. Stratifying on the label doesn't fix that.</td></tr>
+    <tr><td>Count noise: sd 2 on the running count, decks guessed to the nearest half</td><td>The exact count, or heavier noise</td><td>Gives an error of 0.69 count points with correlation 0.96: clearly imperfect, still usable. We did not vary it (see Limitations).</td></tr>
+    <tr><td>Split and CV grouped by shoe</td><td>Stratified rows (proposal)</td><td>Rounds in one shoe share a deck. Stratifying on the label does not fix that.</td></tr>
     <tr><td>Log-loss as the main metric</td><td>F1 (proposal) or accuracy</td><td>Both need a 0.5 cut-off that no decision here uses</td></tr>
     <tr><td>A 20M-round reference as the truth</td><td>Judging only against 0/1 outcomes</td><td>Outcome noise hides differences in the fourth decimal; distance to the truth shows them</td></tr>
     <tr><td>No Platt or isotonic step</td><td>Calibrating every model (proposal)</td><td>We checked first: calibration error was already at the level of noise</td></tr>
-    <tr><td>Paired shoe bootstrap</td><td>t-tests on fold scores</td><td>Fold scores share training data, so they aren't independent</td></tr>
+    <tr><td>Paired shoe bootstrap</td><td>t-tests on fold scores</td><td>Fold scores share training data, so they are not independent</td></tr>
   </table></div>
   <div class="prose">
-    <p style="margin-top:1rem"><b>What changed our minds.</b> Our first quick run on a plain row split already had every model within 0.0002 log-loss of the others. So "which model wins" was never going to be an interesting question. That's why we added the noise floor and the reference run: to ask how close anyone can get, and what is left. The second surprise was the count chart in the Data section. The count moves the money about four times as much as the win rate, which explains why it adds so little here.</p>
+    <p style="margin-top:1rem"><b>What changed our minds.</b> Our first quick run on a plain row split already had every model within 0.0002 log-loss of the others. The question of which model wins was therefore unlikely to be informative. That is why we added the noise floor and the reference run: to ask how close anyone can get, and what is left. The second surprise was the count chart in the Data section. The count moves the money about four times as much as the win rate, which explains why it adds so little here.</p>
   </div>
 </section>
 <section id="results">
   <div class="prose">
     <h2>Results</h2>
-    <p>All four real models crush the constant, then land within 0.0001 log-loss of each other. The plain table is already just 0.0005 above the noise floor, so it captures 99.4% of the improvement that is possible at all.</p>
+    <p>All four models improve substantially on the constant, and they finish within 0.0001 log-loss of one another. The plain table is already only 0.0005 above the noise floor; it captures 99.4% of the improvement that is achievable at all.</p>
   </div>
   <div class="scroll"><table class="data" id="testtable"></table></div>
   <p class="small">Test shoes, scored once. Brackets are 95% paired shoe-bootstrap intervals. RMSE to reference is the average distance from the 20M-round estimate of the true win rate.</p>
   <div class="prose">
-    <p>Against noisy win/lose outcomes, only Table+count is clearly above the table, and only by a hair. The logistic model's gain is borderline on log-loss but clear on Brier. Against the reference truth the picture is cleaner: the logistic model is 1.17 points from the true rate on average, against 1.47 for the table, about 20% closer. The trees come second.</p>
+    <p>Against the noisy win/lose outcomes, only Table+count is clearly better than the table, and only marginally. The logistic model's gain is borderline on log-loss but clear on Brier. Measured against the reference truth, the ranking is clearer: the logistic model is 1.17 points from the true rate on average, against 1.47 for the table, about 20% closer. The trees come second.</p>
 
-    <p><b>What about accuracy?</b> We don't use it to compare models, but it's worth seeing why. Always guessing "not a win" is right 56.7% of the time. Every one of our models, thresholded at 50%, is right 67.7 to 67.8% of the time. A model that knew the true probabilities exactly would also score about 67.7%. So by accuracy all four models are already perfect, and accuracy can't tell them apart at all. That is the reason log-loss and distance to the truth are our metrics.</p>
+    <p><b>Why accuracy is not used.</b> Accuracy is reported here only to show why it cannot rank these models. Always guessing "not a win" is right 56.7% of the time. Every one of our models, thresholded at 50%, is right 67.7 to 67.8% of the time. A model that knew the true probabilities exactly would also score about 67.7%. By this measure all four models are already at the ceiling, so accuracy cannot separate them. This is why log-loss and distance to the truth are the metrics of this study.</p>
 
     <h3>Calibration</h3>
     <p>Pick a model to see how far its predictions sit from what actually happened. A perfectly calibrated model has every point on the zero line, give or take its error bar.</p>
@@ -158,7 +222,7 @@
 
   <div class="prose">
     <h3>Does the count help, and does the imperfect estimate hurt?</h3>
-    <p>Yes, a little, and barely at all. This is measured on a held-out training fold, so the test set stays untouched.</p>
+    <p>It helps slightly, and the imperfection costs almost nothing. This is measured on a held-out training fold, so the test set stays untouched.</p>
   </div>
   <div class="scroll"><table class="data" id="abltable"></table></div>
   <p class="small prose">Using the exact count instead of the player's noisy estimate gains only about 0.02 × 10⁻³ log-loss, far inside the error bars. One caveat: the logistic model without the count is slightly worse than the table, because its regularisation pulls rare cells toward 50%. So part of its count "gain" just makes up for that.</p>
@@ -186,13 +250,13 @@
     <div class="scroll"><table class="readout" id="readout"></table></div>
     <p class="explain" id="explain"></p>
   </div>
-  <p class="small prose" style="margin-top:.8rem">Things worth trying: hard 16 against a 10, where a high count makes things worse because more tens are left to bust you, and the logistic line is flatter than the reference points. Blackjack against an ace, where a high count raises the chance the dealer also has blackjack and the win turns into a push. Soft 18 against an 8, where the trees are off by about 7 points.</p>
+  <p class="small prose" style="margin-top:.8rem">Suggested cases: hard 16 against a 10, where a high count makes things worse because more tens are left to bust you, and the logistic line is flatter than the reference points. Blackjack against an ace, where a high count raises the chance the dealer also has blackjack and the win turns into a push. Soft 18 against an 8, where the trees are off by about 7 points.</p>
 </section>
 
 <section id="errors">
   <div class="prose">
     <h2>Errors</h2>
-    <p>There are two very different kinds of "wrong" here, and it took us a while to separate them.</p>
+    <p>Two quite different kinds of error appear in this problem, and they must be separated before any model can be judged.</p>
     <h3>Outcomes no model could see coming</h3>
     <p>These are the test rounds that surprised the logistic model most, with one row per hand. They are not model mistakes. An 11% chance should come true about 1 time in 9, and with 200,000 test rounds plenty of them do. Both lists still make sense. The left one is stiff hands against an ace at high counts: more tens are left, so the dealer is more likely to have blackjack and the model rightly goes low. The right one is strong hands at very negative counts, where the dealer still managed a tie or a better total.</p>
   </div>
@@ -202,7 +266,7 @@
   </div>
   <div class="prose">
     <h3>Cells where a model really is off</h3>
-    <p>To find real errors we compare each model's average prediction in a cell with the 20M-round reference. Two patterns show up. The tables and the logistic model miss in <b>rare pair and soft cells</b>, where 300 to 700 training rounds give an error of 2 to 3 points, so misses of 5 to 6 points are about what sampling noise predicts across 340 cells. The trees are steadier there, but are biased in cells like <b>soft 18 against 8</b> and <b>hard 19 against 9</b>, where neighbouring totals behave very differently and a 15-leaf tree blurs them together. That's the usual bias versus variance trade.</p>
+    <p>To find real errors we compare each model's average prediction in a cell with the 20M-round reference. Two patterns show up. The tables and the logistic model miss in <b>rare pair and soft cells</b>, where 300 to 700 training rounds give an error of 2 to 3 points, so misses of 5 to 6 points are about what sampling noise predicts across 340 cells. The trees are steadier there, but are biased in cells like <b>soft 18 against 8</b> and <b>hard 19 against 9</b>, where neighbouring totals behave very differently and a 15-leaf tree blurs them together. This is the bias–variance trade-off in concrete form.</p>
   </div>
   <div class="scroll"><table class="data" id="celltable"></table></div>
   <p class="small">The 8 cells with the largest gap for any model, in percentage points (prediction minus reference).</p>
@@ -218,14 +282,14 @@
   <p><b>Win is a lossy target.</b> Folding pushes into "not win" hides the part of the game the count affects most, the size of the payout. Expected return would be the better target for an actual betting decision.</p>
   <p><b>The reference is an estimate too.</b> It treats the true chance as flat inside each count bin and has its own sampling error. We subtract that error, but rare cells still have wide bands.</p>
   <p><b>Simulated data.</b> There is no human behaviour, no dealer error, no card-handling quirks. The question is about the game's mathematics, not about any real casino.</p>
-  <p><b>One noise setting.</b> We picked a single level of counting error and never varied it. The ablation shows that the gap between "exact" and "estimated" is tiny at this level. Much sloppier counting could change that, and we haven't tested it.</p>
+  <p><b>One noise setting.</b> We picked a single level of counting error and never varied it. The ablation shows that the gap between "exact" and "estimated" is tiny at this level. Much sloppier counting could change that, and we have not tested it.</p>
   <p><b>Small tuning grids.</b> The logistic <i>C</i> landed on the edge of its grid. A larger <i>C</i> might be slightly better, though the differences are already tiny.</p>
 </section>
 
 <section id="conclusion" class="prose">
   <h2>Conclusion</h2>
   <p>For predicting whether a blackjack round is won, the state on the table carries nearly all the information. A lookup table of hand against up-card gets within 0.0005 log-loss of a perfect model. The count adds a real but very small improvement, and the logistic model uses it best, ending up about 20% closer to the true probabilities than the table. Knowing the count exactly instead of approximately barely matters for this target. The count's real effect is on the money: it moves the average result about four times as much as the win rate. The interesting difference between models is data efficiency, not final accuracy: with 6k to 64k training rounds the boosted trees are clearly ahead of everything else, and the gap only closes once every cell is well filled.</p>
-  <p><b>What we'd try next.</b> Three things:</p>
+  <p><b>What we would try next.</b> Three things:</p>
   <ul>
     <li>Give the logistic model a separate count slope per cell, to fix the under-reaction at extreme counts.</li>
     <li>Repeat the study with expected return as the target, where the count matters far more.</li>
@@ -241,14 +305,15 @@ cd src
 python simulate.py --rounds 1000000 --seed 335 --out ../data/hands.npz   # ~10 s
 python reference.py                                                      # 20M rounds, ~2.5 min
 python run.py                                                            # ~6 min, writes results/ and docs/data.js</pre>
-  <p>The test shoes are listed in <code>results/test_shoes.txt</code>. A 50,000-row sample of the data is in <code>data/sample_hands.csv</code> for a quick look without running anything. The page you're reading is <code>docs/</code>: plain HTML, CSS and JavaScript reading <code>docs/data.js</code>, served by GitHub Pages.</p>
+  <p>The test shoes are listed in <code>results/test_shoes.txt</code>. A 50,000-row sample of the data is in <code>data/sample_hands.csv</code> for a quick look without running anything. The page you are reading is <code>docs/</code>: plain HTML, CSS and JavaScript reading <code>docs/data.js</code>, served by GitHub Pages.</p>
   <p><b>Contributions.</b> Garv Singhal and Priyanshu Raj contributed equally to the project.</p>
   <p><b>AI use.</b> We used an AI assistant (Claude, by Anthropic) for a large part of this project, including most of the code, the analysis and the first drafts of this text. We chose the question and wrote the proposal, directed the work, and reviewed everything before publishing. <code>AI_USE.md</code> in the repository has the details.</p>
 </section>
 
-<footer class="small">Garv Singhal and Priyanshu Raj · ES 335, IIT Gandhinagar · Source code in the project repository.</footer>
+<footer class="small">Garv Singhal and Priyanshu Raj, ES 335, IIT Gandhinagar. Play money only; this page is a statistics project, not gambling advice.</footer>
 </main>
 <script src="data.js"></script>
 <script src="app.js"></script>
+<script src="game.js"></script>
 </body>
 </html>
