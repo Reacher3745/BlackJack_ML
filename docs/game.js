@@ -73,13 +73,15 @@
   // ---------- game state ----------
   const G = {
     shoe: [], pos: 0, rc: 0, bank: 1000, bet: 25, R: null, busy: false, fast: false,
-    model: "Logistic", seen: new Set(), nextId: 0,
+    model: "Logistic", seen: new Set(), nextId: 0, decks: 6, cut: 78, guessMode: false,
+    duel: { n: 0, you: 0, model: 0 },
     stats: { n: 0, wins: 0, pushes: 0, net: 0, log: [] },
   };
 
   function newShoe() {
     const cards = [];
-    for (let d = 0; d < 6; d++) for (const s of SUITS) for (const r of RANKS) cards.push({ r, s, v: val(r) });
+    G.cut = Math.round(0.25 * 52 * G.decks);   // same 75% penetration as the simulator, for any shoe size
+    for (let d = 0; d < G.decks; d++) for (const s of SUITS) for (const r of RANKS) cards.push({ r, s, v: val(r) });
     for (let i = cards.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [cards[i], cards[j]] = [cards[j], cards[i]]; }
     G.shoe = cards; G.pos = 0; G.rc = 0;
   }
@@ -161,10 +163,11 @@
     if (G.busy || (G.R && !G.R.over)) return;
     if (G.bank < G.bet) { say("Not enough chips for that bet. Pick a smaller chip or take a new stack."); return; }
     G.busy = true;
-    if (left() < 78) { newShoe(); toast("The shoe is reshuffled."); }
+    if (left() < G.cut) { newShoe(); toast("Cut card reached. A new shoe is shuffled and the count restarts at zero."); }
     const decks = left() / 52, tc = G.rc / decks;
     G.R = { hands: [{ c: [], m: 1, done: false, sa: false }], dealer: [], holeHidden: true, active: 0, split: false,
-            peeked: false, acted: false, deviated: false, over: false, pre: { rc: G.rc, decks, tc }, msg: "Dealing." };
+            peeked: false, acted: false, deviated: false, over: false, pre: { rc: G.rc, decks, tc }, msg: "Dealing.",
+            shoeDecks: G.decks, guess: null, locked: false };
     const R = G.R;
     render();
     R.hands[0].c.push(draw()); render(); await pause(240);
@@ -264,7 +267,11 @@
     G.bank += net * G.bet;
     G.stats.n++; G.stats.net += net;
     if (net > 0) G.stats.wins++; else if (net === 0) G.stats.pushes++;
-    G.stats.log.push({ fc: R.fc, win: net > 0 ? 1 : 0, book: !R.deviated });
+    G.stats.log.push({ fc: R.fc, win: net > 0 ? 1 : 0, book: !R.deviated, decks: R.shoeDecks });
+    if (R.locked && !R.deviated && R.fc) {          // "you vs the model": Brier score on hands played by the book
+      const y = net > 0 ? 1 : 0, pm = R.fc[G.model];
+      G.duel.n++; G.duel.you += (R.guess - y) ** 2; G.duel.model += (pm - y) ** 2;
+    }
     G.busy = false;
     if (!G.fast) { render(); if (net !== 0) burst(net > 0); }
   }
@@ -384,11 +391,20 @@
     $("g-betv").textContent = G.bet;
 
     // forecast panel
-    if (R && R.fc) {
+    const hide = G.guessMode && R && R.fc && !R.locked && !R.over;
+    $("g-guess").hidden = !hide;
+    if (hide) {
+      $("g-p").textContent = "?"; $("g-p").dataset.v = 0; $("g-pnot").textContent = "?";
+      $("g-hand").textContent = `${R.fc.type[0].toUpperCase() + R.fc.type.slice(1)} against a dealer ${R.dealer[0].r === "A" ? "ace" : R.dealer[0].v}. What is your chance of winning this round?`;
+      $("g-others").innerHTML = ""; $("g-ref").textContent = "";
+      $("g-gv").textContent = $("g-gs").value + "%";
+    } else if (R && R.fc) {
       const fc = R.fc;
       countTo($("g-p"), fc[G.model]);
       $("g-pnot").textContent = pct(1 - fc[G.model]);
-      $("g-hand").textContent = `${fc.type[0].toUpperCase() + fc.type.slice(1)} against a dealer ${R.dealer[0].r === "A" ? "ace" : R.dealer[0].v}, count ${(R.pre.tc >= 0 ? "+" : "") + R.pre.tc.toFixed(2)}${fc.clamped ? " (the model grid stops at ±4, so ±4 is used)" : ""}.`;
+      $("g-hand").textContent = `${fc.type[0].toUpperCase() + fc.type.slice(1)} against a dealer ${R.dealer[0].r === "A" ? "ace" : R.dealer[0].v}, count ${(R.pre.tc >= 0 ? "+" : "") + R.pre.tc.toFixed(2)}${fc.clamped ? " (the model grid stops at ±4, so ±4 is used)" : ""}.` +
+        (R.shoeDecks !== 6 ? ` The models were trained on 6-deck shoes only; with ${R.shoeDecks} deck${R.shoeDecks > 1 ? "s" : ""} this forecast is outside the conditions they learned from. Compare it with the live simulation.` : "") +
+        (R.locked ? ` Your guess was ${Math.round(100 * R.guess)}%.` : "");
       $("g-others").innerHTML = MODELS.map((m) => `<button type="button" aria-pressed="${m === G.model}" data-m="${m}"><span>${m}</span><b>${pct(fc[m])}</b></button>`).join("");
       $("g-others").querySelectorAll("button").forEach((b) => b.addEventListener("click", () => { G.model = b.dataset.m; render(); }));
       $("g-ref").textContent = fc.ref ? `20M-round reference for this hand and count bin: ${pct(fc.ref[0])} ± ${(100 * fc.ref[1]).toFixed(1)}` : "";
@@ -401,17 +417,18 @@
     const pill = $("g-pill");
     if (R && R.fc && !R.over) {
       pill.hidden = false;
-      pill.textContent = `${G.model} forecast ${pct(R.fc[G.model])} to win` + (R.live ? `, live simulation ${pct(R.live.w)}` : "");
+      pill.textContent = hide ? "Make your guess before the model reveals its forecast." :
+        `${G.model} forecast ${pct(R.fc[G.model])} to win` + (R.live ? `, live simulation ${pct(R.live.w)}` : "");
     } else if (R && R.over && R.fc) {
       pill.hidden = false;
       pill.textContent = `The forecast was ${pct(R.fc[G.model])}. ` + (R.net > 0 ? "This one landed." : "This one did not.");
     } else pill.hidden = true;
     // live bar
-    const L = R && R.live;
+    const L = R && R.live && !hide;   // in guess mode the live odds would give the answer away
     $("g-live").style.opacity = L ? 1 : 0.35;
     const w = L ? L.w : 0, p = L ? L.p : 0, l = L ? L.l : 0;
     $("g-lw").style.width = pct(w); $("g-lp").style.width = pct(p); $("g-ll").style.width = pct(l);
-    $("g-livetxt").textContent = L ? `Win ${pct(w)}, push ${pct(p)}, lose ${pct(l)} (each ± about 0.8 points)` : (R && R.over ? "The hand is over." : "Starts when a hand is dealt.");
+    $("g-livetxt").textContent = hide ? "Hidden until you lock in your guess." : L ? `Win ${pct(w)}, push ${pct(p)}, lose ${pct(l)} (each ± about 0.8 points)` : (R && R.over ? "The hand is over." : "Starts when a hand is dealt.");
     // hint
     if (R && !R.over && R.peeked && R.active < R.hands.length) {
       const s = { H: "hit", S: "stand", D: "double down", P: "split" }[suggestion()];
@@ -423,14 +440,22 @@
     const tcNow = G.rc / (left() / 52);
     $("g-tc").textContent = (tcNow >= 0 ? "+" : "") + tcNow.toFixed(2);
     // session check
-    const book = G.stats.log.filter((x) => x.book);
+    const book = G.stats.log.filter((x) => x.book && x.decks === 6);
     if (book.length) {
       const avg = book.reduce((s, x) => s + x.fc[G.model], 0) / book.length;
       const won = book.reduce((s, x) => s + x.win, 0) / book.length;
       const se = Math.sqrt(Math.max(avg * (1 - avg), 0.01) / book.length);
-      $("g-check").innerHTML = `Over <b>${book.length.toLocaleString()}</b> hands played by the book, ${G.model} forecast an average win chance of <b>${pct(avg)}</b>. You won <b>${pct(won)}</b>. ` +
+      $("g-check").innerHTML = `Over <b>${book.length.toLocaleString()}</b> hand${book.length > 1 ? "s" : ""} played by the book, ${G.model} forecast an average win chance of <b>${pct(avg)}</b>. You won <b>${pct(won)}</b>. ` +
         (book.length < 200 ? "With this few hands, gaps of several points are normal." : `The expected spread at this sample size is about ±${(196 * se).toFixed(1)} points.`);
-    } else $("g-check").textContent = "Play a few hands, or run 200 at once, to check the model's forecasts against what actually happens.";
+    } else $("g-check").textContent = G.decks !== 6 ? "The forecast check counts 6-deck hands only, because that is what the models were trained on. Switch back to 6 decks to add to it." :
+      "Play a few hands, or run 200 at once, to check the model's forecasts against what actually happens.";
+    const D = G.duel;
+    $("g-duel").innerHTML = D.n ? `<b>You against ${G.model}</b> over ${D.n} guessed hand${D.n > 1 ? "s" : ""}: Brier score ${(D.you / D.n).toFixed(3)} for you, ${(D.model / D.n).toFixed(3)} for the model (lower is better). ` +
+      (D.n < 20 ? "Too few hands to call it yet." : D.you < D.model ? "You are ahead." : "The model is ahead.") : "";
+    $("g-arc").textContent = `Blackjack pays 3 to 2. Dealer stands on all 17s. ${G.decks} deck${G.decks > 1 ? "s" : ""}, new shoe at the cut card.`;
+    const midHand = !!(R && !R.over) || G.busy;
+    $("g-decks").disabled = midHand; $("g-newshoe").disabled = midHand;
+    $("g-decks").value = G.decks;
     $("g-sess").textContent = `${G.stats.n} hands, ${G.stats.wins} won, ${G.stats.pushes} pushed, net ${fmtChips(G.stats.net * G.bet)} at the current bet`;
   }
 
@@ -453,6 +478,24 @@
     $("g-book").addEventListener("click", playByTheBook);
     $("g-fast").addEventListener("click", () => fastHands(200));
     $("g-rebuy").addEventListener("click", () => { G.bank += 1000; render(); });
+    $("g-decks").addEventListener("change", (e) => {
+      if (G.busy || (G.R && !G.R.over)) { e.target.value = G.decks; return; }
+      G.decks = +e.target.value; newShoe(); G.R = null;
+      toast(`New ${G.decks}-deck shoe. The count is back to zero.`); render();
+    });
+    $("g-newshoe").addEventListener("click", () => {
+      if (G.busy || (G.R && !G.R.over)) return;
+      newShoe(); G.R = null; toast("Fresh shoe shuffled. The count is back to zero."); render();
+    });
+    $("g-guessmode").addEventListener("change", (e) => { G.guessMode = e.target.checked; render(); });
+    $("g-gs").addEventListener("input", () => { $("g-gv").textContent = $("g-gs").value + "%"; });
+    $("g-lock").addEventListener("click", () => {
+      const R = G.R; if (!R || R.over || R.locked) return;
+      R.guess = +$("g-gs").value / 100; R.locked = true; render();
+    });
+    $("g-resetstats").addEventListener("click", () => {
+      G.stats = { n: 0, wins: 0, pushes: 0, net: 0, log: [] }; G.duel = { n: 0, you: 0, model: 0 }; render();
+    });
     document.addEventListener("keydown", (e) => {
       if (e.target.closest("input, select, textarea") || e.metaKey || e.ctrlKey || e.altKey) return;
       const k = e.key.toLowerCase();

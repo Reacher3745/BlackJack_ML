@@ -30,19 +30,27 @@
   </ul>
 </nav>
 
-<main>
-<header class="intro">
-  <p class="marquee">ES 335 course project, IIT Gandhinagar</p>
-  <h1>Reading the Table: Can a Model Price a Blackjack Hand?</h1>
-  <p class="lead">One million simulated rounds, five models, and a twenty-million-round reference to check them against. Take a seat below: every hand you are dealt is priced by our models the moment the cards land.</p>
+<header class="velvet">
+  <div class="sign">
+    <p class="kicker">ES 335 course project, IIT Gandhinagar</p>
+    <h1>Reading the Table</h1>
+    <p class="sub">Can a machine-learning model price a blackjack hand?</p>
+  </div>
+  <p class="lead">One million simulated rounds, five models, and a twenty-million-round reference to check them against. Take a seat at the table below. Every hand you are dealt is priced by our models the moment the cards land.</p>
   <p class="byline">Garv Singhal (24110119) and Priyanshu Raj (24110279), November 2026</p>
+  <a class="btn primary cta" href="#play">Take a seat</a>
 </header>
-
-<section id="play">
+<div class="ticker" aria-hidden="true"><div class="track"><span>1,000,000 simulated rounds</span><i class="">♠</i><span>House edge −0.32%</span><i class="r">♥</i><span>The lookup table captures 99.4% of the achievable gain</span><i class="r">♦</i><span>Logistic model: 20% closer to the true odds</span><i class="">♣</i><span>The count moves the money 4× more than the win rate</span><i class="">♠</i><span>Accuracy ceiling: 67.7%</span><i class="r">♥</i><span>Checked against a 20,000,000-round reference</span><i class="r">♦</i><span>1,000,000 simulated rounds</span><i class="">♠</i><span>House edge −0.32%</span><i class="r">♥</i><span>The lookup table captures 99.4% of the achievable gain</span><i class="r">♦</i><span>Logistic model: 20% closer to the true odds</span><i class="">♣</i><span>The count moves the money 4× more than the win rate</span><i class="">♠</i><span>Accuracy ceiling: 67.7%</span><i class="r">♥</i><span>Checked against a 20,000,000-round reference</span><i class="r">♦</i></div></div>
+<section id="play" class="feltband"><div class="inner">
   <div class="table-wrap">
     <div class="felt" id="g-felt">
       <div id="g-toast" role="status"></div>
-      <p class="arc">Blackjack pays 3 to 2. Dealer stands on all 17s. Six decks, one split, double after split.</p>
+      <div class="settings">
+        <label for="g-decks">Decks in the shoe</label>
+        <select id="g-decks"><option value="1">1</option><option value="2">2</option><option value="4">4</option><option value="6" selected>6</option><option value="8">8</option></select>
+        <button class="btn small" id="g-newshoe" type="button">Shuffle a new shoe</button>
+      </div>
+      <p class="arc" id="g-arc"></p>
       <div class="zone"><span class="label">Dealer</span><div id="g-dealer"></div></div>
       <p class="g-msg" id="g-msg" aria-live="polite"></p>
       <p class="pill" id="g-pill" hidden></p>
@@ -60,9 +68,15 @@
       <p class="bankline">Stack <b id="g-bank">1,000</b> chips, betting <b id="g-betv">25</b>. Play money only. <button class="linkbtn" id="g-rebuy">Take a new stack</button></p>
     </div>
     <aside class="odds" aria-live="polite">
+      <label class="toggle"><input type="checkbox" id="g-guessmode"> Guess the odds before the model reveals them</label>
       <h3>Model forecast at the deal</h3>
       <div class="bigrow"><span class="bignum" id="g-p">–</span><span class="not">chance this round is a win<br>not a win: <span id="g-pnot">–</span></span></div>
       <p class="desc" id="g-hand"></p>
+      <div class="guess" id="g-guess" hidden>
+        <label for="g-gs">Your guess: <b id="g-gv">50%</b></label>
+        <input id="g-gs" type="range" min="0" max="100" step="1" value="50">
+        <button class="btn primary small" id="g-lock" type="button">Lock in my guess</button>
+      </div>
       <div class="models" id="g-others" role="group" aria-label="Choose the model shown"></div>
       <p class="fine" id="g-ref"></p>
       <div class="liveblock" id="g-live">
@@ -81,19 +95,23 @@
   </div>
   <div class="check">
     <div id="g-check"></div>
+    <div class="duel" id="g-duel"></div>
     <div class="sess" id="g-sess"></div>
     <div class="actions" style="justify-content:flex-start;margin-top:.7rem">
       <button class="btn" id="g-book">Finish this hand by the book</button>
       <button class="btn" id="g-fast">Play 200 hands by the book</button>
+      <button class="linkbtn" id="g-resetstats" type="button">Clear the session</button>
     </div>
   </div>
   <div class="prose" style="margin-top:1rem">
     <p class="small"><b>How to read the table.</b> The forecast is what the trained models say at the moment of the deal. They use the same inputs as the study: your two cards, the dealer's up-card, and the true count before the deal. Like the study, it assumes you will follow basic strategy. If you deviate, the forecast no longer describes your hand.</p>
     <p class="small">The live simulation is not a model. It replays the exact situation thousands of times from the cards that remain, so it shows the probability the models are trying to estimate.</p>
+    <p class="small">The deck setting changes the game, not the models. They were trained on 6-deck shoes only, so with other shoe sizes the forecast is outside what they learned; the live simulation shows how far off that makes it. Basic-strategy hints always use the 6-deck chart.</p>
     <p class="small">The forecast is a probability, not a prediction of one hand. The check under the table compares the average forecast with how often you actually win, and that comparison becomes meaningful only over many hands.</p>
   </div>
-</section>
+</div></section>
 
+<main>
 <section id="card">
   <div class="prose">
     <h2>The strategy card</h2>
@@ -204,6 +222,12 @@
   <div class="prose">
     <h2>Results</h2>
     <p>All four models improve substantially on the constant, and they finish within 0.0001 log-loss of one another. The plain table is already only 0.0005 above the noise floor; it captures 99.4% of the improvement that is achievable at all.</p>
+  </div>
+  <div class="chipstats">
+    <div class="cs red"><b>99.4%</b><span>of the achievable gain is already captured by the lookup table</span></div>
+    <div class="cs blue"><b>20%</b><span>closer to the true odds: logistic regression against the table</span></div>
+    <div class="cs green"><b>67.7%</b><span>accuracy ceiling, which every model already reaches</span></div>
+    <div class="cs black"><b>4×</b><span>more movement in the money than in the win rate as the count changes</span></div>
   </div>
   <div class="scroll"><table class="data" id="testtable"></table></div>
   <p class="small">Test shoes, scored once. Brackets are 95% paired shoe-bootstrap intervals. RMSE to reference is the average distance from the 20M-round estimate of the true win rate.</p>

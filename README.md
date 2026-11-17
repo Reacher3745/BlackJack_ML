@@ -44,7 +44,8 @@ results/
 docs/            the website (GitHub Pages serves this folder)
   index.html     page text and layout
   app.js         charts, strategy card, hand explorer
-  game.js        the playable table: same rules as src/, live model forecast + live Monte Carlo
+  game.js        the playable table: same rules as src/ (1 to 8 decks), live model forecast,
+                 live Monte Carlo, forecast check, and a guess-the-odds duel against the model
   data.js        every number the page shows, written by src/run.py
 ```
 
