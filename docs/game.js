@@ -95,13 +95,14 @@
   const pause = (ms) => (G.fast || reduceMotion ? Promise.resolve() : new Promise((r) => setTimeout(r, ms)));
 
   // ---------- live Monte Carlo from the real shoe ----------
-  function liveOdds(R, n = 4000) {
+  // first = null: basic strategy from here. first = H/S/D/P: take that action now, then basic strategy.
+  function liveOdds(R, n = 4000, first = null) {
     const cnt = new Array(12).fill(0);
     for (let i = G.pos; i < G.shoe.length; i++) cnt[G.shoe[i].v]++;
     const holeUnknown = R.holeHidden;
     if (holeUnknown) cnt[R.dealer[1].v]++;
     const up = R.dealer[0].v;
-    let w = 0, p = 0;
+    let w = 0, p = 0, ev = 0;
     for (let k = 0; k < n; k++) {
       const c = cnt.slice(); let tot = 0; for (let v = 2; v <= 11; v++) tot += c[v];
       const dr = () => { let r = Math.random() * tot; for (let v = 2; v <= 11; v++) { r -= c[v]; if (r < 0) { c[v]--; tot--; return v; } } c[11]--; tot--; return 11; };
@@ -123,15 +124,26 @@
         const dbj = hv([up, hole]).t === 21;
         if (dbj) net = pbj ? 0 : -1; else if (pbj) net = 1.5;
       }
-      if (net === undefined) net = playOut(R, up, hole, dr);
+      if (net === undefined) net = playOut(R, up, hole, dr, first);
+      ev += net;
       if (net > 0) w++; else if (net === 0) p++;
     }
-    return { w: w / n, p: p / n, l: 1 - (w + p) / n, n };
+    return { w: w / n, p: p / n, l: 1 - (w + p) / n, ev: ev / n, n };
   }
-  function playOut(R, up, hole, dr) {
+  function playOut(R, up, hole, dr, first = null) {
     let hands = R.hands.map((h) => ({ c: vals(h), m: h.m, done: h.done }));
     let active = R.active;
-    if (hands.length === 1 && !R.split && !R.acted && decide(hands[0].c, up, true, true) === "P") {
+    if (first) {                               // the player's chosen move, then basic strategy for the rest
+      const h = hands[active];
+      if (first === "H") { h.c.push(dr()); if (hv(h.c).t >= 21) h.done = true; }
+      else if (first === "S") h.done = true;
+      else if (first === "D") { h.m = 2; h.c.push(dr()); h.done = true; }
+      else if (first === "P") {
+        const [a, b] = h.c, sa = a === 11;
+        hands = [{ c: [a, dr()], m: 1, done: sa }, { c: [b, dr()], m: 1, done: sa }];
+        active = 0;
+      }
+    } else if (hands.length === 1 && !R.split && !R.acted && decide(hands[0].c, up, true, true) === "P") {
       const [a, b] = hands[0].c, sa = a === 11;
       hands = [{ c: [a, dr()], m: 1, done: sa }, { c: [b, dr()], m: 1, done: sa }];
       active = 0;
@@ -187,14 +199,19 @@
     if (dbj) { await reveal(); return finish(pbj ? 0 : -1, pbj ? "Both have blackjack. Push." : "Dealer blackjack."); }
     if (pbj) { await reveal(); return finish(1.5, "Blackjack. Paid 3 to 2."); }
     R.msg = "Your move.";
-    if (!G.fast) R.live = liveOdds(R);
+    if (!G.fast) { R.live = liveOdds(R); R.acts = actionOdds(R); }
     G.busy = false;
     render();
   }
+  function actionOdds(R) {
+    const ok = allowedFor(R), out = {};
+    for (const a of ["H", "S", "D", "P"]) if (ok[a]) out[a] = liveOdds(R, 2500, a);
+    return out;
+  }
 
-  function allowed() {
-    const R = G.R;
-    if (!R || R.over || G.busy || R.active >= R.hands.length) return {};
+  function allowed() { return G.busy ? {} : allowedFor(G.R); }
+  function allowedFor(R) {
+    if (!R || R.over || R.active >= R.hands.length) return {};
     const h = R.hands[R.active], v = vals(h);
     return {
       H: true, S: true,
@@ -230,7 +247,7 @@
     while (R.active < R.hands.length && R.hands[R.active].done) R.active++;
     if (R.active >= R.hands.length) return dealerTurn();
     R.msg = R.hands.length > 1 ? `Playing hand ${R.active + 1} of 2.` : "Your move.";
-    if (!G.fast) R.live = liveOdds(R);
+    if (!G.fast) { R.live = liveOdds(R); R.acts = actionOdds(R); }
     G.busy = false;
     render();
   }
@@ -262,7 +279,7 @@
 
   function finish(net, msg) {
     const R = G.R;
-    R.over = true; R.net = net; R.live = null;
+    R.over = true; R.net = net; R.live = null; R.acts = null;
     R.msg = msg;
     G.bank += net * G.bet;
     G.stats.n++; G.stats.net += net;
@@ -382,7 +399,23 @@
 
     // buttons
     const ok = allowed();
-    ["H", "S", "D", "P"].forEach((a) => ($("g-" + a).disabled = !ok[a]));
+    const hideActs = G.guessMode && R && R.fc && !R.locked && !R.over;
+    const A = R && !R.over && !hideActs ? R.acts : null;
+    let bestEV = null, bestW = null;
+    if (A) for (const a in A) {
+      if (!bestEV || A[a].ev > A[bestEV].ev) bestEV = a;
+      if (!bestW || A[a].w > A[bestW].w) bestW = a;
+    }
+    const NAMES = { H: "Hit", S: "Stand", D: "Double", P: "Split" };
+    ["H", "S", "D", "P"].forEach((a) => {
+      const b = $("g-" + a);
+      b.disabled = !ok[a];
+      const o = A && A[a];
+      b.classList.toggle("best", !!o && a === bestEV);
+      b.innerHTML = `${NAMES[a]} <kbd>${a}</kbd>` + (o ? `<small>win ${pct(o.w, 0)}<br>avg ${o.ev >= 0 ? "+" : "−"}${Math.abs(o.ev).toFixed(2)}</small>` : "");
+      b.title = o ? `If you ${NAMES[a].toLowerCase()} now and then follow basic strategy: win ${pct(o.w)}, push ${pct(o.p)}, lose ${pct(o.l)}, average result ${o.ev >= 0 ? "+" : "−"}${Math.abs(o.ev).toFixed(3)} bets (2,500 simulated finishes, about ±1 point).` : "";
+    });
+    R && (R.bestW = bestW, R.bestEV = bestEV);
     $("g-deal").disabled = G.busy || (R && !R.over);
     $("g-book").disabled = !R || R.over || G.busy;
     $("g-fast").disabled = G.busy || (R && !R.over);
@@ -424,7 +457,7 @@
       pill.textContent = `The forecast was ${pct(R.fc[G.model])}. ` + (R.net > 0 ? "This one landed." : "This one did not.");
     } else pill.hidden = true;
     // live bar
-    const L = R && R.live && !hide;   // in guess mode the live odds would give the answer away
+    const L = R && !hide ? R.live : null;   // in guess mode the live odds would give the answer away
     $("g-live").style.opacity = L ? 1 : 0.35;
     const w = L ? L.w : 0, p = L ? L.p : 0, l = L ? L.l : 0;
     $("g-lw").style.width = pct(w); $("g-lp").style.width = pct(p); $("g-ll").style.width = pct(l);
@@ -432,7 +465,11 @@
     // hint
     if (R && !R.over && R.peeked && R.active < R.hands.length) {
       const s = { H: "hit", S: "stand", D: "double down", P: "split" }[suggestion()];
-      $("g-hint").innerHTML = `Basic strategy says <b>${s}</b>.` + (R.deviated ? " You have left basic strategy this hand, so the model's forecast no longer describes it. The live simulation still does." : "");
+      const NM = { H: "hitting", S: "standing", D: "doubling", P: "splitting" };
+      const extra = R.acts && !hideActs && R.bestW && R.bestEV && R.bestW !== R.bestEV &&
+        R.acts[R.bestW].w - R.acts[R.bestEV].w > 0.03   // only when the gap is well beyond the ±1 point simulation noise
+        ? ` Here ${NM[R.bestW]} gives the best chance of winning, but ${NM[R.bestEV]} makes the most money on average. Basic strategy maximises money, not the win rate.` : "";
+      $("g-hint").innerHTML = `Basic strategy says <b>${s}</b>.` + extra + (R.deviated ? " You have left basic strategy this hand, so the model's forecast no longer describes it. The live simulation still does." : "");
     } else $("g-hint").textContent = R && R.over && R.deviated ? "This hand left basic strategy, so it is excluded from the forecast check below." : "";
     // count
     $("g-rc").textContent = (G.rc >= 0 ? "+" : "") + G.rc;

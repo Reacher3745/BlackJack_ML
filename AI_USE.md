@@ -13,7 +13,8 @@ The course allows AI tools as long as we say what we used them for. This file is
   - rows from one shoe aren't independent, so we split by shoe instead of stratified k-fold
   - F1 doesn't fit a probability task
   - a simulated "true" probability can be used as a reference
-- **Wrote most of the code:** the simulator, the basic-strategy table, the feature code, the five models, the metrics and bootstrap, the reference run, the main experiment script, and the website (HTML/CSS/JS).
+- **Wrote most of the code:** the simulator, the basic-strategy table, the feature code, the five models, the metrics and bootstrap, the reference run, the main experiment script, the website (HTML/CSS/JS), and the playable blackjack table with its live forecasts.
+- **Wrote `MATH.md`** and the website's mathematics section.
 - **Ran the experiments** and drafted the analysis.
 - **Drafted the text** of the website and the final report.
 
@@ -40,4 +41,5 @@ Rerunning the three commands in the README reproduces every number.
 - scikit-learn: `LogisticRegression`, `HistGradientBoostingClassifier`, `GroupKFold`, `roc_auc_score`
 - Basic strategy for 6 decks, dealer stands on soft 17, double after split, no surrender: the standard published chart for these rules. Basic strategy goes back to E. O. Thorp, *Beat the Dealer* (1962).
 - The Hi-Lo card counting system (tags +1 / 0 / −1), a standard public counting system.
-- Fonts: Literata and Barlow Semi Condensed from Google Fonts.
+- Fonts: Literata, Bodoni Moda and Barlow Semi Condensed from Google Fonts.
+- KaTeX 0.16.11 (loaded from jsDelivr) renders the formulas on the website.

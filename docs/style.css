@@ -309,3 +309,9 @@ main > section:nth-of-type(4n+4) { --chip: #6b3fa0; }
 }
 @keyframes chase { to { background-position: 11px 11px; } }
 @keyframes ticker { to { transform: translateX(-50%); } }
+
+/* move buttons carry their own odds */
+#g-H, #g-S, #g-D, #g-P { display: inline-flex; flex-direction: column; align-items: center; min-width: 6.2rem; border-radius: 14px; line-height: 1.15; padding: .45rem .8rem; }
+#g-H small, #g-S small, #g-D small, #g-P small { font: 500 .8rem/1.25 var(--sans); color: rgba(255,246,223,.85); margin-top: .2rem; }
+.btn.best { box-shadow: 0 0 0 2px var(--brass-hi), 0 0 16px rgba(240,207,128,.55); background: rgba(214,173,85,.18); }
+.actlegend { text-align: center; font: .88rem/1.35 var(--sans); color: rgba(239,231,210,.75); margin: .1rem auto 0; max-width: 34rem; }

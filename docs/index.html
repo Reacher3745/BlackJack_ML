@@ -8,7 +8,11 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Bodoni+Moda:opsz,wght@6..96,600;6..96,700&family=Literata:opsz,wght@7..72,400;7..72,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
 <link rel="stylesheet" href="style.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+  onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\\(', right: '\\)', display: false}]})"></script>
 </head>
 <body>
 <nav class="top" aria-label="Sections">
@@ -20,6 +24,7 @@
     <li><a href="#preprocessing">Preprocessing</a></li>
     <li><a href="#methods">Baseline and methods</a></li>
     <li><a href="#evaluation">Evaluation</a></li>
+    <li><a href="#math">Mathematics</a></li>
     <li><a href="#choices">Our choices</a></li>
     <li><a href="#results">Results</a></li>
     <li><a href="#explore">Explore a hand</a></li>
@@ -61,6 +66,7 @@
         <button class="btn" id="g-D">Double <kbd>D</kbd></button>
         <button class="btn" id="g-P">Split <kbd>P</kbd></button>
       </div>
+      <p class="actlegend">Under each move: the chance of winning and the average result per bet if you make that move now and then follow basic strategy. The gold ring marks the best average result.</p>
       <div class="rail">
         <div class="chips" id="g-chips" role="group" aria-label="Bet size"></div>
         <button class="btn primary" id="g-deal">Deal <kbd>N</kbd></button>
@@ -147,7 +153,18 @@
     <div><b>8.8%</b><span>pushed</span></div>
     <div><b>47.8%</b><span>lost</span></div>
   </div>
-  <p><b>Does the simulator play real blackjack?</b> The player's average result is −0.32% of the bet (95% CI −0.54% to −0.09%). Published house edge for these rules is about 0.4%, inside that range. The edge also improves by roughly half a percent per count point, which is the usual rule of thumb.</p>
+  <div class="scroll"><table class="data" style="min-width:32rem">
+    <tr><th>Variable</th><th>Meaning</th><th>Role</th></tr>
+    <tr><td><code>player_total</code></td><td>Two-card total, an ace counted as 11 unless that busts</td><td>Input</td></tr>
+    <tr><td><code>is_soft</code>, <code>is_pair</code></td><td>Whether an ace is counted as 11; whether both cards have the same value</td><td>Input</td></tr>
+    <tr><td><code>dealer_up</code></td><td>Dealer's visible card, 2 to 11 (ace)</td><td>Input</td></tr>
+    <tr><td><code>est_count</code></td><td>Player's noisy estimate of the true count, before the deal</td><td>Input</td></tr>
+    <tr><td><code>true_count</code></td><td>Exact true count, before the deal</td><td>Ablation only, never an input</td></tr>
+    <tr><td><code>net</code></td><td>Money result of the round, in units of the initial bet</td><td>Defines the target</td></tr>
+    <tr><td><code>win</code></td><td>1 if <code>net</code> &gt; 0, else 0</td><td>Target</td></tr>
+    <tr><td><code>shoe_id</code></td><td>Which shuffle the round came from</td><td>Grouping for the split and the bootstrap</td></tr>
+  </table></div>
+  <p style="margin-top:1rem"><b>Does the simulator play real blackjack?</b> The player's average result is −0.32% of the bet (95% CI −0.54% to −0.09%). Published house edge for these rules is about 0.4%, inside that range. The edge also improves by roughly half a percent per count point, which is the usual rule of thumb.</p>
   <p><b>The imperfect count.</b> We use Hi-Lo (2–6 are +1, 7–9 are 0, tens and aces are −1). A real player gets it slightly wrong, so we add normal noise with standard deviation 2 to the running count and let the player guess the decks left only to the nearest half deck. The estimate still correlates 0.96 with the exact true count, with a typical error of 0.69 points.</p>
   <p><b>Rare hands.</b> The 340 combinations of hand type and up-card are far from balanced. The median one has 783 training rounds; pair of 7s against a 7 has only 287. For cells like that, a simple win rate has an error of around 3 percentage points.</p>
 
@@ -195,6 +212,56 @@
   </details>
 </section>
 
+
+<section id="math" class="prose">
+  <h2>The mathematics</h2>
+  <p>This section states every quantity used on this page. Each formula comes with one sentence on why it is there. All logarithms are natural.</p>
+
+  <h3>The count</h3>
+  <p>Each card gets a Hi-Lo tag \(t(c) = +1\) for 2 to 6, \(0\) for 7 to 9, and \(-1\) for tens and aces. The running count sums the tags of every card seen since the shuffle. A shoe of \(D\) decks holds \(20D\) low cards and \(20D\) high cards, so the running count measures the surplus of high cards still to come:</p>
+  $$RC = \sum_{\text{seen}} t(c) = H_{\text{left}} - L_{\text{left}}, \qquad TC = \frac{RC}{D_{\text{left}}}.$$
+  <p>The player's estimate adds a miscount and a rough reading of the discard tray:</p>
+  $$\widehat{TC} = \frac{RC + \varepsilon}{\widehat D}, \qquad \varepsilon \sim \mathcal N(0, 2^2), \qquad \widehat D = \max\!\left(0.5,\ \tfrac12\operatorname{round}(2D_{\text{left}})\right).$$
+
+  <h3>What is being estimated</h3>
+  <p>With inputs \(X\) and target \(Y = \mathbb 1[\text{net} &gt; 0]\), the object of interest is the conditional win probability under the fixed rules, basic strategy and the noise model:</p>
+  $$p^*(x) = P(Y = 1 \mid X = x).$$
+
+  <h3>Log-loss, and the part no model can remove</h3>
+  $$\ell(y, \hat p) = -\left[y \log \hat p + (1 - y) \log(1 - \hat p)\right]$$
+  <p>Averaged over the data, it splits exactly into the randomness of the cards plus the model's own error:</p>
+  $$\mathbb E\big[\ell(Y, \hat p(X))\big] = \underbrace{\mathbb E\big[H(p^*(X))\big]}_{\text{noise floor}} + \underbrace{\mathbb E\big[\operatorname{KL}\big(p^*(X)\,\|\,\hat p(X)\big)\big]}_{\text{model error}\ \ge\ 0}$$
+  <p>Here \(H(p) = -p\log p - (1-p)\log(1-p)\). The KL term is zero only when \(\hat p = p^*\), so the noise floor is the best loss any model can reach.</p>
+
+  <h3>Brier score and distance to the truth</h3>
+  $$B = \mathbb E\big[(\hat p - Y)^2\big] = \mathbb E\big[p^*(1 - p^*)\big] + \mathbb E\big[(\hat p - p^*)^2\big]$$
+  <p>To see this, add and subtract \(p^*\) inside the square. The cross term vanishes because \(\mathbb E[Y - p^* \mid X] = 0\).</p>
+  <p>The second term is what we report as RMSE to the reference. The reference rate \(p_{\text{ref}}\) of a cell comes from \(n\) rounds and has its own sampling variance, so that variance is subtracted:</p>
+  $$\widehat{\text{MSE}} = \frac1N\sum_i \left[(\hat p_i - p_{\text{ref},i})^2 - \frac{p_{\text{ref},i}(1 - p_{\text{ref},i})}{n_i}\right], \qquad \text{RMSE} = \sqrt{\widehat{\text{MSE}}}.$$
+
+  <h3>Calibration error</h3>
+  <p>Sort the predictions, cut them into \(B = 20\) equal-count bins, and compare the average prediction \(\bar p_b\) with the observed win rate \(\bar y_b\):</p>
+  $$\text{ECE} = \sum_{b=1}^{B} \frac{n_b}{N}\,\left|\bar y_b - \bar p_b\right|.$$
+  <p>Even a perfect model scores above zero, because each \(\bar y_b\) is noisy. With 10,000 rounds per bin and \(p \approx 0.43\), the expected absolute gap is \(\sqrt{2/\pi}\cdot\sqrt{p(1-p)/n_b} \approx 0.004\). That is exactly the level every model reaches.</p>
+
+  <h3>The models</h3>
+  <p><b>Shrunken table.</b> A cell with \(w\) wins in \(n\) rounds is pulled toward a parent rate \(p_0\):</p>
+  $$\hat p = \frac{w + m\,p_0}{n + m} = \frac{n}{n + m}\cdot\frac{w}{n} + \frac{m}{n + m}\cdot p_0.$$
+  <p>This is the posterior mean under a \(\operatorname{Beta}(m p_0,\ m(1 - p_0))\) prior: \(m\) acts as a number of imaginary rounds at the parent rate.</p>
+  <p><b>Logistic regression.</b> Each state \(s\) gets its own intercept, and the count slope depends on the up-card \(u\) and the hand \(h\):</p>
+  $$\log\frac{\hat p}{1 - \hat p} = a_s + (b_u + c_h)\,\widehat{TC}, \qquad \min_\theta\ \sum_i \ell(y_i, \hat p_i) + \frac{1}{2C}\lVert\theta\rVert^2.$$
+  <p><b>Boosted trees.</b> The log-odds are a sum of small trees, \(F(x) = \sum_{m} \eta f_m(x)\) with \(\hat p = \sigma(F)\). Each new tree is fitted using the gradient \(\hat p - y\) and curvature \(\hat p(1 - \hat p)\) of the log-loss at the current fit.</p>
+
+  <h3>Error bars</h3>
+  <p>For each shoe \(g\), let \(S_g\) be the sum of a per-round quantity (a loss, or a loss difference) and \(n_g\) its number of rounds. A bootstrap replicate resamples the \(G\) test shoes with replacement and computes \(\sum_g S_g / \sum_g n_g\). The 2.5th and 97.5th percentiles of 2,000 replicates give the 95% interval. Resampling whole shoes keeps the rounds that share a deck together. For model comparisons the same resampled shoes are used for both models (a paired bootstrap).</p>
+
+  <h3>The game's live numbers</h3>
+  <p>The live simulation draws \(n\) random finishes from the cards actually left, so its estimate \(\hat p = k/n\) has standard error</p>
+  $$\operatorname{SE} = \sqrt{\frac{\hat p(1 - \hat p)}{n}} \le \frac{0.5}{\sqrt n}.$$
+  <p>That is at most 0.8 points for the 4,000 finishes behind the bar, and 1.0 point for the 2,500 behind each move button.</p>
+  <p>The "average result" under a move is the mean of <code>net</code> over those finishes. Basic strategy maximises this expected result, not the win probability. The two can disagree: hitting a stiff hand can raise the average result while lowering the chance of winning, and doubling stakes twice the money on a single card.</p>
+  <p>The guessing game scores you and the model with the same Brier score, \(\frac1n\sum (q_i - y_i)^2\), where \(q_i\) is the probability given before the hand was played.</p>
+</section>
 
 <section id="choices">
   <div class="prose">
@@ -329,7 +396,7 @@ cd src
 python simulate.py --rounds 1000000 --seed 335 --out ../data/hands.npz   # ~10 s
 python reference.py                                                      # 20M rounds, ~2.5 min
 python run.py                                                            # ~6 min, writes results/ and docs/data.js</pre>
-  <p>The test shoes are listed in <code>results/test_shoes.txt</code>. A 50,000-row sample of the data is in <code>data/sample_hands.csv</code> for a quick look without running anything. The page you are reading is <code>docs/</code>: plain HTML, CSS and JavaScript reading <code>docs/data.js</code>, served by GitHub Pages.</p>
+  <p>Every formula on this page is also collected in <code>MATH.md</code> in the repository. The test shoes are listed in <code>results/test_shoes.txt</code>. A 50,000-row sample of the data is in <code>data/sample_hands.csv</code> for a quick look without running anything. The page you are reading is <code>docs/</code>: plain HTML, CSS and JavaScript reading <code>docs/data.js</code>, served by GitHub Pages.</p>
   <p><b>Contributions.</b> Garv Singhal and Priyanshu Raj contributed equally to the project.</p>
   <p><b>AI use.</b> We used an AI assistant (Claude, by Anthropic) for a large part of this project, including most of the code, the analysis and the first drafts of this text. We chose the question and wrote the proposal, directed the work, and reviewed everything before publishing. <code>AI_USE.md</code> in the repository has the details.</p>
 </section>

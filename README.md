@@ -21,6 +21,19 @@ We also ask how much of that accuracy comes from the deck estimate rather than f
 - Counting imperfectly costs almost nothing.
 - The count moves the money result about 4× more than the win rate.
 
+## Where the concepts are explained
+
+- [MATH.md](MATH.md): every formula, in one place.
+  - the Hi-Lo count and the noisy estimate
+  - the quantity being estimated
+  - log-loss split into the noise floor and the model's error
+  - Brier score and the distance-to-truth metric
+  - calibration error and why it is never zero
+  - the three models
+  - the shoe bootstrap
+  - the game's Monte Carlo numbers
+- The website's sections Question, Our choices and The mathematics explain the same ideas in prose.
+
 ## Layout
 
 ```
