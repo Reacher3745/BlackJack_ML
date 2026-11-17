@@ -1,0 +1,35 @@
+[     1s] 1000000 rows, 23068 shoes | train 799946 rows, test 200054 rows
+[     1s] cv Table          {'m': 1} -> 0.59320 (sd 0.00100)
+[     1s] cv Table          {'m': 10} -> 0.59326 (sd 0.00100)
+[     1s] cv Table          {'m': 100} -> 0.59405 (sd 0.00095)
+[     1s]    picked {'m': 1}
+[     1s] cv Table+count    {'m': 20} -> 0.59428 (sd 0.00099)
+[     1s] cv Table+count    {'m': 100} -> 0.59359 (sd 0.00100)
+[     1s] cv Table+count    {'m': 500} -> 0.59322 (sd 0.00100)
+[     1s] cv Table+count    {'m': 2000} -> 0.59319 (sd 0.00100)
+[     1s] cv Table+count    {'m': 10000} -> 0.59323 (sd 0.00100)
+[     1s]    picked {'m': 2000}
+[     8s] cv Logistic       {'C': 0.01} -> 0.59783 (sd 0.00087)
+[    19s] cv Logistic       {'C': 0.1} -> 0.59350 (sd 0.00104)
+[    30s] cv Logistic       {'C': 1.0} -> 0.59315 (sd 0.00106)
+[    42s] cv Logistic       {'C': 10.0} -> 0.59309 (sd 0.00106)
+[    42s]    picked {'C': 10.0}
+[    60s] cv Boosted trees  {'max_leaf_nodes': 15, 'learning_rate': 0.1, 'max_iter': 100} -> 0.59301 (sd 0.00105)
+[   107s] cv Boosted trees  {'max_leaf_nodes': 15, 'learning_rate': 0.05, 'max_iter': 300} -> 0.59300 (sd 0.00105)
+[   157s] cv Boosted trees  {'max_leaf_nodes': 31, 'learning_rate': 0.05, 'max_iter': 300} -> 0.59302 (sd 0.00107)
+[   215s] cv Boosted trees  {'max_leaf_nodes': 63, 'learning_rate': 0.05, 'max_iter': 300} -> 0.59329 (sd 0.00106)
+[   215s]    picked {'max_leaf_nodes': 15, 'learning_rate': 0.05, 'max_iter': 300}
+[   220s] ablation Logistic done
+[   249s] ablation Boosted trees done
+[   251s] learning curve 0.01 6367
+[   254s] learning curve 0.03 19161
+[   256s] learning curve 0.1 64011
+[   260s] learning curve 0.3 191993
+[   271s] learning curve 1.0 639956
+[   286s] final models fit
+[   287s] test Constant       ll 0.68416 brier 0.24552 auc 0.5000 ece 0.0034 rmse_ref 0.2018
+[   287s] test Table          ll 0.59261 brier 0.20502 auc 0.7216 ece 0.0034 rmse_ref 0.0147
+[   288s] test Table+count    ll 0.59256 brier 0.20498 auc 0.7218 ece 0.0042 rmse_ref 0.0140
+[   288s] test Logistic       ll 0.59251 brier 0.20493 auc 0.7220 ece 0.0043 rmse_ref 0.0117
+[   288s] test Boosted trees  ll 0.59250 brier 0.20497 auc 0.7219 ece 0.0044 rmse_ref 0.0122
+[   290s] wrote results/results.json and docs/data.js
