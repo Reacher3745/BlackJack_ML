@@ -42,6 +42,10 @@ results/
   test_shoes.txt the shoe ids in the test set
   run.log        log of the last full run
 docs/            the website (GitHub Pages serves this folder)
+  index.html     page text and layout
+  app.js         charts, strategy card, hand explorer
+  game.js        the playable table: same rules as src/, live model forecast + live Monte Carlo
+  data.js        every number the page shows, written by src/run.py
 ```
 
 ## Data access
